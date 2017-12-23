@@ -2,7 +2,9 @@
   (:require
    [clojure.java.io :as jio]
    [rum.core :as rum :refer [defc]]
-   [ring.util.http-response :as rg.res]
+   [ring.util.http-response :as rg.tl.res]
+   [buddy.core.nonce :as bdy.nnce]
+   [buddy.sign.jwt :as bdy.sgn.jwt]
    [taoensso.encore :as enc]
    [kos.db.domain.user :as db.dmn.usr]
    [kos.db :as db]
@@ -20,20 +22,20 @@
     (= :post request-method)
     ((ws/ring-post ws-server) request)
 
-    (rg.res/method-not-allowed)))
+    (rg.tl.res/method-not-allowed)))
 
 (defn asset-resource
   [request]
   (enc/cond
     (not= :get (:request-method request))
-    (rg.res/method-not-allowed)
+    (rg.tl.res/method-not-allowed)
 
     :let [file (jio/file (subs (:uri request) 1))]
 
     (and (.exists file) (.isFile file))
-    (rg.res/ok file)
+    (rg.tl.res/ok file)
 
-    (rg.res/not-found)))
+    (rg.tl.res/not-found)))
 
 (defn asset
   [path]
@@ -57,27 +59,37 @@
   (if (= :get (:request-method request))
     (let [config (enc/have (get-in request [:services :config]))]
       (-> (rum/render-html (index-page config))
-          (rg.res/ok)
-          (rg.res/header "content-type" "text/html")))
-    (rg.res/method-not-allowed)))
+          (rg.tl.res/ok)
+          (rg.tl.res/header "content-type" "text/html")))
+    (rg.tl.res/method-not-allowed)))
+
+(defonce auth-option
+  {:secret (bdy.nnce/random-bytes 32)
+   :option {:alg :a256kw :enc :a128gcm}})
+
+(defn tokenize
+  [user]
+  (let [{:keys [secret option]} auth-option]
+    (bdy.sgn.jwt/encrypt user secret option)))
 
 (defn login-resource
   [request]
   (enc/cond
     (not= :post (:request-method request))
-    (rg.res/method-not-allowed)
+    (rg.tl.res/method-not-allowed)
 
-    (some? (:session request))
-    (rg.res/unauthorized)
+    (some? (get-in request [:cookies "usrtkn"]))
+    (rg.tl.res/unauthorized)
 
-    :let [body  (:body request)
+    :let [body  (:body-params request)
           db-db (enc/have (get-in request [:services :db-db]))
           user  (db.dmn.usr/find-user-by-credential db-db body)]
 
     (nil? user)
-    (rg.res/forbidden)
+    (rg.tl.res/forbidden)
 
-    :let [user (select-keys user [:db.entity/id :user/name :user/email])
-          user-token (db.dmn.usr/tokenize user)]
+    :let [user-token (-> user
+                         (select-keys [:db.entity/id :user/name :user/email])
+                         (tokenize))]
 
-    (assoc (rg.res/ok) :session user-token)))
+    (assoc (rg.tl.res/ok) :cookies {"usrtkn" {:value user-token}})))

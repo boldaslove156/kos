@@ -182,7 +182,7 @@
     (fn [{:keys [config]} event]
       [{:effect/id :ws-server/publish
         :event     {:event/id :db-conn/send-bootstrap}
-        :more      [(get-in config [:ws :timeout])
+        :more      [(get-in config [:ws :timeout-ms])
                     {:event/id :db-conn/apply-pull-data}]}])))
 
 #?(:cljs

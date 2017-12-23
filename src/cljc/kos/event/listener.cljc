@@ -22,7 +22,7 @@
       [kos.ws :as ws]
       [kos.db :as db]
       [kos.element :as el]
-      [kos.ajax :as jx])))
+      [kos.http-requester :as htpreq])))
 
 (defmulti handle-effect!
   (fn [service effect]
@@ -83,15 +83,16 @@
   (:stop-ch event-listener))
 
 (defstate event-listener
-  :start (start-event-listener! #?(:clj {:ws-server @ws/ws-server
-                                         :db-conn   @db/db-conn
-                                         :config    @cfg/config}
-                                   :cljs {:ws-server   @ws/ws-server
-                                          :db-conn     @db/db-conn
-                                          :element     @el/element
-                                          :config      @cfg/config
-                                          :ajax-caller @jx/ajax-caller})
-                                @evt/event-dispatcher)
+  :start (start-event-listener!
+          #?(:clj {:ws-server @ws/ws-server
+                   :db-conn   @db/db-conn
+                   :config    @cfg/config}
+             :cljs {:ws-server @ws/ws-server
+                    :db-conn   @db/db-conn
+                    :element   @el/element
+                    :config    @cfg/config
+                    :http-req  @htpreq/http-requester})
+          @evt/event-dispatcher)
   :stop (stop-event-listener! @event-listener))
 
 ;; ======================================================

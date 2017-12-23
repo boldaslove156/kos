@@ -3,8 +3,6 @@
      (:require
       [datomic.api :as dtm]
       [datascript.core :as dts]
-      [buddy.core.nonce :as bdy.nnce]
-      [buddy.sign.jwt :as bdy.sgn.jwt]
       [buddy.hashers :as bdy.hsh]
       [taoensso.encore :as enc]
       [kos.db :as db :refer [update-data]])
@@ -17,17 +15,6 @@
 ;; ======================================================
 ;; Authentication
 ;; ======================================================
-
-#?(:clj
-   (defonce auth-option
-     {:secret (bdy.nnce/random-bytes 32)
-      :option {:alg :a256kw :enc :a128gcm}}))
-
-#?(:clj
-   (defn tokenize
-     [user]
-     (let [{:keys [secret option]} auth-option]
-       (bdy.sgn.jwt/encrypt user secret option))))
 
 #?(:clj
    (defn- password-match?

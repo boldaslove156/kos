@@ -85,7 +85,7 @@
          (fn []
            (let [credential {:user/email    (:my/email @state_)
                              :user/password (:my/password @state_)}
-                 event      {:event/id   :ajax-caller/request-authentication
+                 event      {:event/id   :http-requester/request-authentication
                              :credential credential}]
              (evt/dispatch! event-dispatcher event)
              (reset! state_ {})))}

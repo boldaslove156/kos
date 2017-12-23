@@ -14,9 +14,8 @@
        [true :app/not-found]]])
 
 (defn path-for
-  [what target params]
-  (let [routes (case what
-                 :server server-routes
-                 :client client-routes)
-        params (mapcat identity params)]
-    (apply bd/path-for routes target params)))
+  ([routes route params]
+   (let [params (mapcat identity params)]
+     (apply bd/path-for routes route params)))
+  ([routes route]
+   (path-for routes route {})))

@@ -16,9 +16,9 @@
   #?(:clj (let [source      "resources/private/edn/kos/config.edn"
                 base-config (aro/read-config source {:profile profile})]
             (assoc base-config :profile profile))
-     :cljs {:ws {:timeout 5000}
-            :ajax {:timeout 5000}
-            :db {:what :datascript}}))
+     :cljs {:ws   {:timeout-ms 5000}
+            :http {:timeout-ms 10000}
+            :db   {:what :datascript}}))
 
 (defstate config
   :start (read-config! #?(:clj (enc/have [:el #{:dev}] (:profile (mnt/args)))

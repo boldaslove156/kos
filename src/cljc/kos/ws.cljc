@@ -24,9 +24,11 @@
   (let [packer (get-transit-packer)]
     #?(:clj (snt/make-channel-socket!
              (get-sch-adapter)
-             {:packer packer})
+             {:packer packer
+              :user-id-fn (fn [request]
+                            (get-in request [:cookies "usrtkn" :value]))})
        :cljs (snt/make-channel-socket!
-              (rts/path-for :server :ws/ajax {})
+              (rts/path-for rts/server-routes :ws/ajax)
               {:packer         packer
                :type           :auto
                :wrap-recv-evs? false}))))
@@ -61,10 +63,15 @@
      [ws-server]
      (snt/chsk-reconnect! (:chsk ws-server))))
 
+#?(:cljs
+   (defn csrf-token
+     [ws-server]
+     (:csrf-token @(:state ws-server))))
+
 (defn bootstrap-outgoing-event
- [event]
- [(have (:event/id event))
-  (dissoc event :event/id)])
+  [event]
+  [(have (:event/id event))
+   (dissoc event :event/id)])
 
 #?(:clj
    (defn publish!

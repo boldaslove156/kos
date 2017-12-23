@@ -2,8 +2,8 @@
   (:require
    [mount.core :as mnt]
    [kos.config]
-   [kos.ajax]
-   [kos.ajax.listener]
+   [kos.http-requester]
+   [kos.http-requester.listener]
    [kos.db]
    [kos.db.bootstrapper]
    [kos.db.listener]

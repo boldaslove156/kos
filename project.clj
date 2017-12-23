@@ -12,9 +12,11 @@
                  [datomic-schema "1.3.0"]
                  [io.rkn/conformity "0.5.1"]
                  [ring/ring-defaults "0.3.1"]
+                 [metosin/muuntaja "0.4.1"]
                  [metosin/ring-http-response "0.9.0"]
                  [buddy/buddy-core "1.4.0"]
                  [buddy/buddy-sign "2.2.0"]
+                 [buddy/buddy-auth "2.1.0"]
                  [buddy/buddy-hashers "1.3.0"]
                  [com.cognitect/transit-clj "0.8.300"]
                  ;; cljs
@@ -26,6 +28,7 @@
                  [bidi "2.1.2"]
                  [datascript "0.16.3"]
                  [mount "0.1.11"]
+                 [cljs-ajax "0.7.3"]
                  [com.taoensso/sente "1.11.0"]
                  [com.taoensso/timbre "4.10.0"]
                  [com.taoensso/encore "2.92.0"]]
@@ -43,4 +46,4 @@
   :aliases      {"dev" ["with-profile" "+dev" "do" "clean," "repl" ":headless"]})
 
 ;; nur: 20, 10%
-;; berliana: 5
+;; berliana: 5, 10%
