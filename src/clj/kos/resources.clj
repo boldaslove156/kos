@@ -92,4 +92,5 @@
                          (select-keys [:db.entity/id :user/name :user/email])
                          (tokenize))]
 
-    (assoc (rg.tl.res/ok) :cookies {"usrtkn" {:value user-token}})))
+    (assoc (rg.tl.res/ok) :cookies {"usrtkn" {:value     user-token
+                                              :http-only true}})))
