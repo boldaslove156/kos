@@ -11,7 +11,8 @@
   {:ws/ajax            rsc/ws-resource
    :static-files/asset rsc/asset-resource
    :static-files/index rsc/index-resource
-   :auth/login         rsc/login-resource})
+   :auth/login         rsc/login-resource
+   :auth/logout        rsc/logout-resource})
 
 (defn start-router!
   [middleware routes route-mapping]

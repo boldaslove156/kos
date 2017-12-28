@@ -8,7 +8,8 @@
       [kos.impl.listener :as ipl.lst]
       [kos.event :as evt]
       [kos.event.listener :refer [act-to listen-to]]
-      [kos.ws :as ws])
+      [kos.ws :as ws]
+      [kos.db :as db])
      :cljs
      (:require
       [cljs.core.async :as asn]
@@ -18,7 +19,8 @@
       [kos.impl.listener :as ipl.lst]
       [kos.event :as evt]
       [kos.event.listener :refer [listen-to act-to]]
-      [kos.ws :as ws])))
+      [kos.ws :as ws]
+      [kos.db :as db])))
 
 (defn bootstrap-incoming-event
   [event]
@@ -84,7 +86,7 @@
 ;; Register handler
 ;; ======================================================
 
-(defn- bootstrap-publish-callback
+(defn bootstrap-publish-callback
   [event-dispatcher publish-event]
   (fn [remote-event]
     (let [event (enc/merge publish-event remote-event)]
@@ -120,13 +122,33 @@
     :chsk/state
     (fn [service {:keys [ws/data]}]
       ;; kalo mau tiap buka client: (:open? new-state)
+      ;; kalo mau check apa uda di close \\
+      ;; (and (not (:open? old-state)) (not (:open? new-state)))
       (let [[old-state new-state] data]
         [(when (:first-open? new-state)
            {:effect/id :event-dispatcher/event
-            :event     {:event/id :db-conn/request-bootstrap}})]))))
+            :event     {:event/id :db-conn/request-bootstrap}})
+         {:effect/id :ws-server/publish
+          :event     {:event/id :ws-server/myself}}]))))
 
 #?(:cljs
    (act-to
     :ws-server/reconnect
     (fn [{:keys [ws-server]} effect]
       (ws/reconnect! ws-server))))
+
+#?(:clj
+   (listen-to
+    :ws-server/myself
+    (fn [{:keys [db-db]} {:keys [ws/ring-request ws/peer-id] :as event}]
+      (enc/when-let [entity-id (get-in ring-request
+                                       [:identity :db.entity/id])
+                     self-user (db/entity db-db [:db.entity/id entity-id])]
+        [{:effect/id :ws-server/publish
+          :peer-id   peer-id
+          :event     {:event/id  :db-conn/apply-pull-data
+                      :pull-data [(-> self-user
+                                      (select-keys [:db.entity/id
+                                                    :user/name
+                                                    :user/emails])
+                                      (assoc :user/me? true))]}}]))))

@@ -6,8 +6,7 @@
       [taoensso.timbre :as tmb]
       [taoensso.encore :as enc]
       [kos.routes :as rts]
-      [kos.config :as cfg]
-      [kos.event :as evt])
+      [kos.config :as cfg])
      :cljs
      (:require
       [mount.core :refer-macros [defstate]]
@@ -15,8 +14,7 @@
       [taoensso.timbre :as tmb :include-macros true]
       [taoensso.encore :as enc :include-macros true]
       [kos.routes :as rts]
-      [kos.config :as cfg]
-      [kos.event :as evt])))
+      [kos.config :as cfg])))
 
 (defn fetch!
   [routes route params option]
@@ -33,34 +31,35 @@
                   :delete jx/DELETE)]
     (call-fn uri option)))
 
-(defn response-handler
-  [event-dispatcher event response]
-  (evt/dispatch! event-dispatcher (assoc event :response/data response)))
+(defn bootstrap-response
+  [response]
+  {:response/data response})
 
 (defn http-requester-option
-  [config event-dispatcher option]
-  (let [timeout-ms    (get-in config [:ajax :timeout-ms])
-        success-event (enc/have (:success-event option))
-        error-event   (:error-event option success-event)]
+  [config option]
+  (let [timeout-ms      (get-in config [:ajax :timeout-ms])
+        success-handler (enc/have (:handler option))
+        error-handler   (:error-handler option success-handler)]
     (enc/merge
      {:timeout timeout-ms}
      option
-     {:handler       (partial response-handler
-                        event-dispatcher
-                        (assoc success-event :response/success? true))
-      :error-handler (partial response-handler
-                        event-dispatcher
-                        (assoc error-event :response/success? false))})))
+     {:handler       #(-> %
+                          (bootstrap-response)
+                          (assoc :response/success? true)
+                          (success-handler))
+      :error-handler #(-> %
+                          (bootstrap-response)
+                          (assoc :response/success? false)
+                          (error-handler))})))
 
 (defn start-http-requester!
-  [config event-dispatcher]
+  [config]
   (tmb/info "Starting http requester...")
   (fn [routes route params request-method option]
-    (let [timeout-ms (get-in config [:ajax :timeout-ms])
-          option     (http-requester-option config event-dispatcher option)]
+    (let [option (http-requester-option config option)]
       (if (= :get request-method)
         (fetch! routes route params option)
         (send! routes route params request-method option)))))
 
 (defstate http-requester
-  :start (start-http-requester! @cfg/config @evt/event-dispatcher))
+  :start (start-http-requester! @cfg/config))

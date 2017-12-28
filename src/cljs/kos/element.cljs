@@ -6,6 +6,7 @@
    [taoensso.timbre :as tmb :include-macros true]
    [taoensso.encore :refer-macros [have]]
    [kos.db :as db]
+   [kos.db.domain.user :as db.dmn.usr]
    [kos.event :as evt]))
 
 (defn el-value
@@ -50,7 +51,7 @@
         {:on-click (fn []
                      (let [new-user {:db.entity/id  (:my/id @state_)
                                      :user/name     (:my/name @state_)
-                                     :user/email    (:my/email @state_)
+                                     :user/emails   (:my/email @state_)
                                      :user/password (:my/password @state_)}
                            event    {:event/id :db-conn/add-users
                                      :users    [new-user]}]
@@ -91,6 +92,31 @@
              (reset! state_ {})))}
         "Login"]]]]))
 
+(defc logout-button
+  [db-db event-dispatcher]
+  [:p
+   [:button
+    {:on-click
+     (fn []
+       (let [event {:event/id :http-requester/request-unauthentication}]
+         (evt/dispatch! event-dispatcher event)))}
+    "Logout"]])
+
+(defc authentication-el
+  [db-db event-dispatcher]
+  (if-let [self (db.dmn.usr/find-self-user db-db)]
+    [:div
+     [:p (str "Id:" (:db.entity/id self))]
+     [:p (str "Name:" (:user/name self))]
+     [:div
+      [:ul
+       "Emails:"
+       (mapv (fn [email]
+               [:li email])
+             (:user/emails self))]]
+     (logout-button db-db event-dispatcher)]
+    (login-form db-db event-dispatcher)))
+
 (defc display-users
   [db-db event-dispatcher]
   [:div
@@ -100,7 +126,7 @@
                      db-db
                      [:db.entity/id
                       :user/name
-                      :user/email
+                      :user/emails
                       :user/password])]
      (if (seq users)
        [:ul
@@ -109,7 +135,10 @@
                  [:ul
                   [:li (:db.entity/id user)]
                   [:li (:user/name user)]
-                  [:li (:user/email user)]
+                  [:li
+                   [:ul (mapv (fn [email]
+                                [:li email])
+                              (:user/emails user))]]
                   [:li (:user/password user)]]])
               users)]
        [:h1 "No User!"]))])
@@ -119,7 +148,7 @@
   [:div
    [:h1 "Hello World!"]
    (new-user-form db-db event-dispatcher)
-   (login-form db-db event-dispatcher)
+   (authentication-el db-db event-dispatcher)
    (display-users db-db event-dispatcher)])
 
 (defn mount-element!

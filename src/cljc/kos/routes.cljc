@@ -6,6 +6,7 @@
   ["" [["/chsk" :ws/ajax]
        ["/resources/public" [[true :static-files/asset]]]
        ["/login" :auth/login]
+       ["/logout" :auth/logout]
        ["/" :static-files/index]
        [true :app/not-found]]])
 

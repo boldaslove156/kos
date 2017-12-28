@@ -71,7 +71,7 @@
      :datomic    #?(:clj (dtm/tempid part n))
      :datascript (dts/tempid part n))))
 
-(defn- encode-base64
+(defn encode-base64
   [input]
   #?(:clj (.encodeToString (Base64/getEncoder) (.getBytes input))
      :cljs (base64/encodeString input)))
@@ -107,6 +107,15 @@
   (case (what-db db-db)
     :datomic    #?(:clj (apply dtm/q query db-db args))
     :datascript (apply dts/q query db-db args)))
+
+(defn qentity
+  [query db-db & args]
+  (let [result (enc/have [:or empty? enc/singleton?]
+                         (apply q query db-db args))
+        eid    (enc/have [:or nil? enc/pos-int?]
+                         (ffirst result))]
+    (when (some? eid)
+      (entity db-db eid))))
 
 (defn datoms
   [db-db index & components]

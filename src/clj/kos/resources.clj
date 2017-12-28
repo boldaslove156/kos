@@ -72,13 +72,22 @@
   (let [{:keys [secret option]} auth-option]
     (bdy.sgn.jwt/encrypt user secret option)))
 
+(defn get-cookie
+  [req-or-res cookie-name]
+  (get-in req-or-res [:cookies cookie-name]))
+
+(defn add-cookie
+  [response cookie-name cookie-option]
+  {:pre [(enc/have? string? cookie-name)]}
+  (assoc-in response [:cookies cookie-name] cookie-option))
+
 (defn login-resource
   [request]
   (enc/cond
     (not= :post (:request-method request))
     (rg.tl.res/method-not-allowed)
 
-    (some? (get-in request [:cookies "usrtkn"]))
+    (some? (get-cookie request "usrtkn"))
     (rg.tl.res/unauthorized)
 
     :let [body  (:body-params request)
@@ -89,8 +98,25 @@
     (rg.tl.res/forbidden)
 
     :let [user-token (-> user
-                         (select-keys [:db.entity/id :user/name :user/email])
+                         (select-keys [:db.entity/id])
                          (tokenize))]
 
-    (assoc (rg.tl.res/ok) :cookies {"usrtkn" {:value     user-token
-                                              :http-only true}})))
+    (add-cookie (rg.tl.res/ok) "usrtkn" {:value     user-token
+                                         :http-only true})))
+
+(defn expire-cookie
+  [response cookie-name]
+  {:pre [(enc/have? string? cookie-name)]}
+  (assoc-in response [:cookies cookie-name] {:value   ""
+                                             :max-age 0}))
+
+(defn logout-resource
+  [request]
+  (enc/cond
+    (not= :post (:request-method request))
+    (rg.tl.res/method-not-allowed)
+
+    (nil? (get-cookie request "usrtkn"))
+    (rg.tl.res/unauthorized)
+
+    (expire-cookie (rg.tl.res/ok) "usrtkn")))

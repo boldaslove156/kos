@@ -99,24 +99,12 @@
      (boolean (:db/ident (db/entity db eid)))))
 
 #?(:cljs
-   (def ref-attrs
-     [:db/valueType :db/cardinality :db/unique]))
-
-#?(:cljs
-   (def schema-pattern
-     ['*
-      (into {}
-            (map (fn [ref-attr]
-                   [ref-attr ['*]]))
-            ref-attrs)]))
-
-#?(:cljs
    (defn new-schema-map
      [{attr :db/ident :as schema}]
      (let [schema (reduce (fn [schema ref-attr]
                             (update schema ref-attr :db/ident))
                           (dissoc schema :db/ident)
-                          ref-attrs)]
+                          db.snc/ref-attrs)]
        {attr (update schema :db/valueType (fn [val-type]
                                             (when (= :db.type/ref val-type)
                                               val-type)))})))
@@ -133,7 +121,7 @@
                            tx-data)]
         (when (seq eids)
           (let [schema-map (->> eids
-                                (db/pull-many db-after schema-pattern)
+                                (db/pull-many db-after db.snc/schema-pattern)
                                 (transduce (map new-schema-map) enc/merge))]
             [{:effect/id  :db-conn/merge-schema-map
               :schema-map schema-map}]))))))
@@ -154,11 +142,13 @@
 #?(:cljs
    (listen-to
     :db-conn/apply-pull-data
-    (fn [service {:keys [pull-data]}]
+    (fn [{:keys [db-db]} {:keys [pull-data bootstrap?]
+                         :or   {bootstrap? false}}]
       [{:effect/id :db-conn/transact
-        :tx-data   (into []
-                         (map db.snc/datom->data)
-                         (db.snc/datomize pull-data))
+        :tx-data   (->> pull-data
+                        (db.snc/datomize bootstrap?)
+                        (into [] (map db.snc/datom->data))
+                        (db.snc/local-tx db-db))
         :tx-meta   {:db/sync? false}}])))
 
 (listen-to
@@ -174,7 +164,8 @@
     (fn [{:keys [db-db]} {:keys [ws/?reply-fn]}]
       [{:effect/id  :ws-server/reply
         :reply-fn   ?reply-fn
-        :reply-data {:pull-data (db.snc/bootstrap-data db-db)}}])))
+        :reply-data {:pull-data  (db.snc/bootstrap-data db-db)
+                     :bootstrap? true}}])))
 
 #?(:cljs
    (listen-to
@@ -189,10 +180,11 @@
    (listen-to
     :db-conn/add-locations
     (fn [{:keys [db-conn]} {:keys [locations]}]
-      [{:effect/id :db-conn/transact
-        :tx-data   (into []
-                         (mapcat (partial db.dmn.lct/new-tx :datascript))
-                         locations)}])))
+      (let [what-db (db/what-db db-conn)]
+        [{:effect/id :db-conn/transact
+          :tx-data   (into []
+                           (mapcat (partial db.dmn.lct/new-tx what-db))
+                           locations)}]))))
 
 #?(:cljs
    (listen-to

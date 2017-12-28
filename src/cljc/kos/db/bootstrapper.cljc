@@ -48,7 +48,7 @@
                       (schema user
                         (fields
                          [name :string]
-                         [email :string :many :unique-identity]
+                         [emails :string :many :unique-identity]
                          [password :string]
                          [created-at :instant]))
                       (schema role

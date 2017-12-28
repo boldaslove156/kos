@@ -80,30 +80,37 @@
            (remove (comp nil? second)))
         tx-data))
 
-#?(:clj
-   (defn attr-missing?
-     [db-db attr eid]
-     (let [entity (case (db/what-db db-db)
-                    :datomic    (dtm/entity db-db eid)
-                    :datascript (dts/entity db-db eid))]
-       (not (boolean (attr entity))))))
+(defn at-least-has-keys?
+  [ks m]
+  (boolean (some (set ks) (keys m))))
 
-#?(:clj
-   (defn bootstrap-data
-     [db-db]
-     (->> (db/datoms db-db :eavt)
-          (into [] (comp (map (fn [[e a v t added?]] e))
-                      (enc/xdistinct)))
-          (db/pull-many db-db '[*])
-          (into [] (filter (comp not :db/fn))))))
+(def ref-attrs
+  [:db/valueType :db/cardinality :db/unique])
+
+(def schema-pattern
+  ['*
+   (into {}
+         (map (fn [ref-attr]
+                [ref-attr ['*]]))
+         ref-attrs)])
+
+(defn bootstrap-data
+  [db-db]
+  (->> (db/datoms db-db :eavt)
+       (into [] (comp (map (fn [[e a v t added?]] e))
+                   (enc/xdistinct)))
+       (db/pull-many db-db ['*])
+       (into [] (remove (partial at-least-has-keys? #{:db/fn})))))
 
 ;; ================================================================
 ;; Accept
 ;; ================================================================
 
 (defn identity-data?
-  [[db-fn [unique-attr unique-value] attr value]]
-  (= unique-attr attr))
+  [[db-fn eid attr value]]
+  (if (enc/vec2? eid)
+    (= (first eid) attr)
+    false))
 
 (defn translate-remote-eid!
   ([eid-mapping_ db-db eid]
@@ -169,49 +176,49 @@
 ;; Datomize pull result
 ;; ============================================================================
 
-#?(:cljs
-   (declare new-datoms))
+(declare new-datoms)
 
-#?(:cljs
-   (defn map->datoms
-     [m]
-     (let [eid (enc/have (:db/id m))]
-       (into []
-             (mapcat (fn [[attr value]]
-                       (new-datoms eid attr value nil true)))
-             (dissoc m :db/id)))))
+(defn get-identifier
+  [bootstrap? m]
+  (enc/have (or (when bootstrap? (:db/id m))
+                (find m :db.entity/id)
+                (find m :db/ident))))
 
-#?(:cljs
-   (defn new-datoms
-     [eid attr value date added?]
-     (enc/cond
-       (map? value)
-       (conj (map->datoms value)
-             [eid attr (:db/id value) date added?])
+(defn map->datoms
+  [bootstrap? m]
+  (let [eid (get-identifier bootstrap? m)]
+    (into []
+          (mapcat (fn [[attr value]]
+                    (new-datoms bootstrap? eid attr value nil true)))
+          (dissoc m :db/id))))
 
-       (coll? value)
-       (into []
-             (mapcat #(new-datoms eid attr % date added?))
-             value)
+(defn new-datoms
+  [bootstrap? eid attr value date added?]
+  (enc/cond
+    (map? value)
+    (conj (map->datoms bootstrap? value)
+          [eid attr (get-identifier bootstrap? value) date added?])
 
-       [[eid attr value date added?]])))
+    (coll? value)
+    (into []
+          (mapcat #(new-datoms bootstrap? eid attr % date added?))
+          value)
 
-#?(:cljs
-   (defn list->datoms
-     [[eid attr value date added?]]
-     (new-datoms eid attr value date added?)))
+    [[eid attr value date added?]]))
 
-#?(:cljs
-   (defn datomize-data
-     [x]
-     (enc/cond
-       (map? x)
-       (map->datoms x)
+(defn list->datoms
+  [bootstrap? [eid attr value date added? :as data]]
+  (new-datoms bootstrap? eid attr value date added?))
 
-       (coll? x)
-       (list->datoms x))))
+(defn datomize-data
+  [bootstrap? x]
+  (enc/cond
+    (map? x)
+    (map->datoms bootstrap? x)
 
-#?(:cljs
-   (defn datomize
-     [data]
-     (into [] (mapcat datomize-data) data)))
+    (coll? x)
+    (list->datoms bootstrap? x)))
+
+(defn datomize
+  [bootstrap? pull-data]
+  (into [] (mapcat (partial datomize-data bootstrap?)) pull-data))

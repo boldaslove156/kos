@@ -13,11 +13,22 @@
       [taoensso.encore :as enc :include-macros true])))
 
 ;; ======================================================
+;; General query
+;; ======================================================
+
+#?(:cljs
+   (defn find-self-user
+     [db-db]
+     (db/qentity '{:find  [?eid]
+                   :where [[?eid :user/me? true]]}
+                 db-db)))
+
+;; ======================================================
 ;; Authentication
 ;; ======================================================
 
 #?(:clj
-   (defn- password-match?
+   (defn password-match?
      [attempt derived]
      (enc/catching (bdy.hsh/check attempt derived)
                    _
@@ -27,9 +38,10 @@
    (defn find-user-by-credential
      [db-db {:keys [user/email user/password] :as creds}]
      {:pre [(enc/have? some? email password)]}
-     (enc/when-let [user (db/entity db-db [:user/email email])
+     (enc/when-let [user             (db/entity db-db [:user/emails email])
                     derived-password (:user/password user)
-                    password-ok? (password-match? password derived-password)]
+                    password-ok?     (password-match? password
+                                                      derived-password)]
        user)))
 
 ;; ======================================================
@@ -51,10 +63,12 @@
 
 (defn new-tx
   [what user]
-  (let [user (have-new-user user)
+  (let [user      (have-new-user user)
         entity-id (or (:db.entity/id user) (db/gen-entity-id what))
-        tempid (or (:db/id user) (db/tempid what :db.part/user))]
-    [[:db/add tempid :db.entity/id entity-id]
-     [:db/add tempid :user/name (:user/name user)]
-     [:db/add tempid :user/email (:user/email user)]
-     [:db/add tempid :user/password (:user/password user)]]))
+        tempid    (or (:db/id user) (db/tempid what :db.part/user))]
+    (into [[:db/add tempid :db.entity/id entity-id]
+           [:db/add tempid :user/name (:user/name user)]
+           [:db/add tempid :user/password (:user/password user)]]
+          (map (fn [email]
+                 [:db/add tempid :user/emails email]))
+          (:user/emails user))))

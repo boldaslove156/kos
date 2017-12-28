@@ -17,11 +17,11 @@
    [kos.ws :as ws]
    [kos.resources :as rsc]))
 
-(defn- parse-cookie-token-header
+(defn parse-cookie-token-header
   [request token-name]
   (get-in request [:cookies token-name :value]))
 
-(defn- handle-unauthorized-default
+(defn handle-unauthorized-default
   [request]
   (if (bdy.ath/authenticated? request)
     (rg.tl.res/forbidden)
